@@ -1,7 +1,13 @@
+mod hackenbush;
+mod computer;
+
 use nannou::prelude::*;
+use petgraph::prelude::*;
+use hackenbush::Game;
 
 struct Model {
     _window: window::Id,
+    // game: Game
 }
 
 fn main() {
@@ -19,6 +25,7 @@ fn model(app: &App) -> Model {
 
     Model {
         _window: win,
+        // game: Game::new()
     }
 }
 
