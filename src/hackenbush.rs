@@ -1,12 +1,14 @@
 use petgraph::prelude::*;
 
+use crate::app;
+
 pub enum Color {
     Red,
     Blue,
 }
 
 pub struct Game {
-    graph: UnGraph<(), Color>,
+    graph: UnGraph<app::Coordinate, Color>,
     turn: Color,
 }
 
