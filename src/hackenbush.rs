@@ -7,8 +7,10 @@ pub enum Color {
     Blue,
 }
 
+pub type Graph = UnGraph<app::Coordinate, Color>;
+
 pub struct Game {
-    graph: UnGraph<app::Coordinate, Color>,
+    graph: Graph,
     turn: Color,
 }
 
