@@ -53,6 +53,7 @@ impl Color {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Game {
     graph: StableUnGraph<(), Color>,
     turn: Color,

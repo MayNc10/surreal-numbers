@@ -1,7 +1,7 @@
-use crate::hackenbush::{Color, Game, Graph};
-use petgraph::visit::EdgeRef;
+use crate::hackenbush::{Color, Game};
+use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Position {
     pub score: i32,
     pub best_move: Option<usize>,
@@ -24,7 +24,7 @@ fn find_best_move_subgraph(game: &Game, player: Color) -> Position {
 
     // This is bad, but tells us if there's only one edge in the graph (i.e., one move)
 
-    let graph = game.graph();
+    let graph = game.get_graph();
 
     let mut blue_values = Vec::new();
     let mut red_values = Vec::new();
