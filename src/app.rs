@@ -124,7 +124,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         }
     }
 
-    for (i, (start, end, color)) in edges {
+    for (_, &(start, end, color)) in edges.iter().sorted_unstable_by_key(|(_, (_, _, c))| *c) {
         draw.line()
             .start(start.into())
             .end(end.into())

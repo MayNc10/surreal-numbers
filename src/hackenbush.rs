@@ -5,7 +5,7 @@ use petgraph::prelude::*;
 use rand::distributions::Standard;
 use rand::prelude::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 
 pub enum Color {
     Red,
