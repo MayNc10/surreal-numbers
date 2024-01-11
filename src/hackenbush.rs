@@ -4,6 +4,7 @@ use rand::distributions::Standard;
 use rand::prelude::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+
 pub enum Color {
     Red,
     Blue,
@@ -41,6 +42,13 @@ impl Color {
         match self {
             Color::Red => PINK,
             Color::Blue => CYAN,
+        }
+    }
+
+    pub fn invert(&self) -> Color {
+        match self {
+            Color::Blue => Color::Red,
+            Color::Red => Color::Blue,
         }
     }
 }
@@ -110,7 +118,9 @@ impl Game {
     }
 
     pub fn make_move(&self, _move: usize) -> Game {
-        panic!("TODO")
+        let mut new_state = (*self).clone();
+        new_state.turn = new_state.turn.invert();
+        new_state
     }
 
     pub fn get_graph(&self) -> &StableUnGraph<(), Color> {
