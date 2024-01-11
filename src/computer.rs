@@ -1,6 +1,7 @@
 use crate::hackenbush::{Color, Game, Graph};
 use petgraph::visit::EdgeRef;
 
+#[derive(Copy, Clone)]
 pub struct Position {
     pub score: i32,
     pub best_move: Option<usize>,
@@ -24,14 +25,7 @@ fn find_best_move_subgraph(game: &Game, player: Color) -> Position {
     // This is bad, but tells us if there's only one edge in the graph (i.e., one move)
 
     let graph = game.graph();
-    if let Some(g_move) = graph.edge_weights().next() && graph.edge_weights().skip(1).next().is_none() {
-        return Position {
-            score: match g_move { Color::Blue => ONE_BLUE, Color::Red => ONE_RED },
-            best_move: if g_move == player {
-                Some( graph.edge_indices().next().unwrap().index() )
-            } else { None }
-        }
-    }
+
 
     let mut blue_values = Vec::new();
     let mut red_values = Vec::new();
@@ -45,8 +39,14 @@ fn find_best_move_subgraph(game: &Game, player: Color) -> Position {
         { match edge {
             Color::Blue => &mut blue_values,
             Color::Red => &mut red_values,
-        } }.push(game_value)
+        } }.push((game_value, index))
     }
+    // Now calculate the simplified value of the position
+    let left_hand = blue_values.iter().max().copied();
+    let right_hand = red_values.iter().max().copied();
 
-    None
+    // This is where we need a surreal number system to compute the actual value
+    // Then we could return the best move and value
+
+    panic!()
 }
