@@ -33,7 +33,7 @@ fn find_best_move_subgraph(game: &Game, player: Color) -> Position {
         let edge = edge_ref.weight();
         let index = edge_ref.id();
 
-        let new_game = game.make_move(index.index());
+        let new_game = game.make_move(index);
         let game_value = find_best_move_subgraph(&new_game, edge.invert());
         match edge {
             Color::Blue => &mut blue_values,

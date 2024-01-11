@@ -1,13 +1,14 @@
 use crate::hackenbush::{Color, Game};
 use itertools::Itertools;
 use nannou::prelude::*;
+use petgraph::graph::EdgeIndex;
 use petgraph::prelude::StableUnGraph;
 use rand::thread_rng;
+use std::collections::HashMap;
 
 pub struct Model {
     _window: window::Id,
     game: Game,
-    points: Vec<(f32, f32)>,
     transform_data: ((f32, f32), (f32, f32)),
 }
 
@@ -32,22 +33,25 @@ impl Model {
 pub fn model(app: &App) -> Model {
     let win = app.new_window().size(800, 600).view(view).build().unwrap();
 
-    let (game, points) = Game::random_triangles(20, &mut thread_rng());
+    let game = Game::random_triangles(20, &mut thread_rng());
 
-    let min_x = points
-        .iter()
-        .map(|&(x, _)| x)
+    let min_x = game
+        .get_graph()
+        .node_weights()
+        .map(|&(_, (x, _))| x)
         .min_by(|a, b| a.partial_cmp(b).unwrap())
         .unwrap();
-    let max_x = points
-        .iter()
-        .map(|&(x, _)| x)
+    let max_x = game
+        .get_graph()
+        .node_weights()
+        .map(|&(_, (x, _))| x)
         .max_by(|a, b| a.partial_cmp(b).unwrap())
         .unwrap();
     let min_y = 0.0;
-    let max_y = points
-        .iter()
-        .map(|&(_, y)| y)
+    let max_y = game
+        .get_graph()
+        .node_weights()
+        .map(|&(_, (_, y))| y)
         .max_by(|a, b| a.partial_cmp(b).unwrap())
         .unwrap();
 
@@ -66,7 +70,6 @@ pub fn model(app: &App) -> Model {
     Model {
         _window: win,
         game,
-        points,
         transform_data,
     }
 }
@@ -74,12 +77,11 @@ pub fn model(app: &App) -> Model {
 pub fn event(app: &App, model: &mut Model, event: Event) {
     match event {
         Event::WindowEvent {
-            id,
+            id: _,
             simple: Some(event),
         } => match event {
             MousePressed(MouseButton::Left) => {
-                let edges =
-                    get_edge_positions(model.game.get_graph(), &model.points, &model.trans_func());
+                let edges = get_edge_positions(model.game.get_graph(), &model.trans_func());
                 let closest_edge =
                     get_selected_edge(app.mouse.position().into(), model.game.get_turn(), &edges);
 
@@ -107,12 +109,12 @@ fn view(app: &App, model: &Model, frame: Frame) {
         .wh(backdrop.wh())
         .color(LIGHTGREY);
 
-    let edges = get_edge_positions(model.game.get_graph(), &model.points, &model.trans_func());
+    let edges = get_edge_positions(model.game.get_graph(), &model.trans_func());
 
     if let Some(edge) =
         get_selected_edge(app.mouse.position().into(), model.game.get_turn(), &edges)
     {
-        let (start, end, color) = edges[edge];
+        let (start, end, color) = edges[&edge];
         if color == model.game.get_turn() {
             draw.line()
                 .start(pt2(start.0, start.1))
@@ -122,7 +124,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
         }
     }
 
-    for (start, end, color) in edges {
+    for (i, (start, end, color)) in edges {
         draw.line()
             .start(start.into())
             .end(end.into())
@@ -131,7 +133,7 @@ fn view(app: &App, model: &Model, frame: Frame) {
     }
 
     for node in model.game.get_graph().node_indices().skip(1) {
-        let (x, y) = model.transform(model.points[node.index()]);
+        let (x, y) = model.transform(model.game.get_graph().node_weight(node).unwrap().1);
         draw.ellipse().x_y(x, y).radius(5.0).color(BLACK);
     }
 
@@ -145,26 +147,25 @@ fn view(app: &App, model: &Model, frame: Frame) {
 }
 
 fn get_edge_positions(
-    graph: &StableUnGraph<(), Color>,
-    points: &[(f32, f32)],
+    graph: &StableUnGraph<(bool, (f32, f32)), Color>,
     transform: &impl Fn((f32, f32)) -> (f32, f32),
-) -> Vec<((f32, f32), (f32, f32), Color)> {
+) -> HashMap<EdgeIndex, ((f32, f32), (f32, f32), Color)> {
     graph
         .edge_indices()
         .map(|edge| {
             let (a, b) = graph.edge_endpoints(edge).unwrap();
             let (first, second) = if a.index() == 0 {
-                let (x2, y2) = transform(points[b.index()]);
+                let (x2, y2) = transform(graph.node_weight(b).unwrap().1);
                 ((x2, transform((0.0, 0.0)).1), (x2, y2))
             } else if b.index() == 0 {
-                let (x1, y1) = transform(points[a.index()]);
+                let (x1, y1) = transform(graph.node_weight(a).unwrap().1);
                 ((x1, transform((0.0, 0.0)).1), (x1, y1))
             } else {
-                let (x1, y1) = transform(points[a.index()]);
-                let (x2, y2) = transform(points[b.index()]);
+                let (x1, y1) = transform(graph.node_weight(a).unwrap().1);
+                let (x2, y2) = transform(graph.node_weight(b).unwrap().1);
                 ((x1, y1), (x2, y2))
             };
-            (first, second, *graph.edge_weight(edge).unwrap())
+            (edge, (first, second, *graph.edge_weight(edge).unwrap()))
         })
         .collect()
 }
@@ -172,12 +173,11 @@ fn get_edge_positions(
 fn get_selected_edge(
     point: (f32, f32),
     color: Color,
-    edges: &[((f32, f32), (f32, f32), Color)],
-) -> Option<usize> {
+    edges: &HashMap<EdgeIndex, ((f32, f32), (f32, f32), Color)>,
+) -> Option<EdgeIndex> {
     let distances: Vec<_> = edges
         .iter()
-        .enumerate()
-        .filter_map(|(i, &(start, end, c))| {
+        .filter_map(|(&i, &(start, end, c))| {
             if c != color {
                 return None;
             }

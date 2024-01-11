@@ -1,4 +1,6 @@
+use itertools::Itertools;
 use nannou::color::{Rgba8, Srgb, BLUE, CYAN, PINK, RED};
+use petgraph::data::DataMap;
 use petgraph::prelude::*;
 use rand::distributions::Standard;
 use rand::prelude::*;
@@ -55,21 +57,21 @@ impl Color {
 
 #[derive(Clone, Debug)]
 pub struct Game {
-    graph: StableUnGraph<(), Color>,
+    graph: StableUnGraph<(bool, (f32, f32)), Color>,
     turn: Color,
 }
 
 impl Game {
-    pub fn random_triangles(size: usize, rng: &mut ThreadRng) -> (Game, Vec<(f32, f32)>) {
+    pub fn random_triangles(size: usize, rng: &mut ThreadRng) -> Game {
         let mut points: Vec<_> = [(0f32, 0f32)]
             .into_iter()
             .chain((0..1).map(|i| (i as f32, 1f32)))
             .collect();
 
         let mut graph = StableUnGraph::with_capacity(size, 2 * size);
-        graph.add_node(());
-        for (i, _) in points.iter().enumerate().skip(1) {
-            graph.add_node(());
+        graph.add_node((false, points[0]));
+        for (i, &point) in points.iter().enumerate().skip(1) {
+            graph.add_node((false, point));
             graph.add_edge(NodeIndex::new(0), NodeIndex::new(i), rng.gen());
         }
 
@@ -91,7 +93,7 @@ impl Game {
                     + (x1 - x2) / 2.0 * (1.0 - RANDOMNESS + RANDOMNESS * 2.0 * rng.gen::<f32>()),
             );
             points.push((x, y));
-            graph.add_node(());
+            graph.add_node((false, (x, y)));
             graph.add_edge(NodeIndex::new(i), ai, rng.gen());
             graph.add_edge(NodeIndex::new(i), bi, rng.gen());
             free_edges.push(graph.find_edge(NodeIndex::new(i), ai).unwrap());
@@ -107,24 +109,53 @@ impl Game {
         for i in 1..points.len() {
             let (x, y) = points[i];
             points[i] = (x, y - lowest + 0.3);
+            *graph.node_weight_mut(NodeIndex::new(i)).unwrap() = (false, points[i]);
         }
 
-        (
-            Game {
-                graph,
-                turn: rng.gen(),
-            },
-            points,
-        )
+        Game {
+            graph,
+            turn: rng.gen(),
+        }
     }
 
-    pub fn make_move(&self, _move: usize) -> Game {
+    pub fn make_move(&self, target: EdgeIndex) -> Game {
         let mut new_state = (*self).clone();
         new_state.turn = new_state.turn.invert();
+        new_state.graph.remove_edge(target);
+        let base = new_state.graph.node_weight(NodeIndex::new(0)).unwrap().0;
+        let mut stack = vec![NodeIndex::new(0)];
+        while let Some(node) = stack.pop() {
+            for neighbor in new_state.graph.neighbors(node).collect_vec().clone() {
+                let tag = new_state
+                    .graph
+                    .node_weight_mut(NodeIndex::new(neighbor.index()))
+                    .unwrap();
+                if tag.0 == base {
+                    stack.push(neighbor);
+                    tag.0 = !base;
+                }
+            }
+        }
+
+        for edge in new_state.graph.edge_indices().collect_vec().clone() {
+            let (a, b) = new_state.graph.edge_endpoints(edge).unwrap();
+            if new_state.graph.node_weight(a).unwrap().0 == base
+                && new_state.graph.node_weight(b).unwrap().0 == base
+            {
+                new_state.graph.remove_edge(edge);
+            }
+        }
+
+        for node in new_state.graph.node_indices().collect_vec().clone() {
+            if new_state.graph.node_weight(node).unwrap().0 == base {
+                new_state.graph.remove_node(node);
+            }
+        }
+
         new_state
     }
 
-    pub fn get_graph(&self) -> &StableUnGraph<(), Color> {
+    pub fn get_graph(&self) -> &StableUnGraph<(bool, (f32, f32)), Color> {
         &self.graph
     }
 
