@@ -4,6 +4,7 @@ use petgraph::data::DataMap;
 use petgraph::prelude::*;
 use rand::distributions::Standard;
 use rand::prelude::*;
+use crate::computer::Position;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 
@@ -152,6 +153,13 @@ impl Game {
             }
         }
 
+        new_state
+    }
+
+    pub fn add_branch(&self, target: NodeIndex, position: (f32, f32)) -> Game {
+        let mut new_state = (*self).clone();
+        let new_node = new_state.graph.add_node((false, position));
+        new_state.graph.add_edge(target, new_node, self.turn);
         new_state
     }
 

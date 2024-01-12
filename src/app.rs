@@ -5,11 +5,20 @@ use petgraph::graph::EdgeIndex;
 use petgraph::prelude::StableUnGraph;
 use rand::thread_rng;
 use std::collections::HashMap;
+use nannou::winit::event::VirtualKeyCode;
+use crate::computer::find_best_move;
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum ModelMode {
+    Playing,
+    Building
+}
 
 pub struct Model {
     _window: window::Id,
     game: Game,
     transform_data: ((f32, f32), (f32, f32)),
+    mode: ModelMode,
 }
 
 impl Model {
@@ -71,6 +80,7 @@ pub fn model(app: &App) -> Model {
         _window: win,
         game,
         transform_data,
+        mode: ModelMode::Playing
     }
 }
 
@@ -81,13 +91,21 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
             simple: Some(event),
         } => match event {
             MousePressed(MouseButton::Left) => {
-                let edges = get_edge_positions(model.game.get_graph(), &model.trans_func());
-                let closest_edge =
-                    get_selected_edge(app.mouse.position().into(), model.game.get_turn(), &edges);
+                if model.mode == ModelMode::Playing {
+                    let edges = get_edge_positions(model.game.get_graph(), &model.trans_func());
+                    let closest_edge =
+                        get_selected_edge(app.mouse.position().into(), model.game.get_turn(), &edges);
 
-                if let Some(edge) = closest_edge {
-                    model.game = model.game.make_move(edge);
+                    if let Some(edge) = closest_edge {
+                        model.game = model.game.make_move(edge);
+                    }
                 }
+                else if model.mode == ModelMode::Building {
+
+                }
+            }
+            KeyPressed(VirtualKeyCode::Return) =>{
+                println!("Model evaluation is: {}", find_best_move(&model.game).score.to_real())
             }
             _ => {}
         },
