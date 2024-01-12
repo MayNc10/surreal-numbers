@@ -1,52 +1,63 @@
+use petgraph::graph::EdgeIndex;
 use crate::hackenbush::{Color, Game};
 use petgraph::visit::{EdgeRef, IntoEdgeReferences};
+use crate::surreals::{Surreal, SurrealNumbers, SURREALS};
+use rayon::prelude::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Ord, Eq)]
 pub struct Position {
-    pub score: i32,
+    pub score: Surreal,
     pub best_move: Option<usize>,
 }
 
-pub fn find_best_move(_game: &Game, _player: Color) -> Position {
-    panic!("TODO")
+pub fn find_best_move(game: &Game) -> Position {
+    // We can optimize this later
+    println!("Finding best move!");
+    find_best_move_subgraph(game, game.get_turn())
 }
 
-// + -> blue
-// - -> red
-
-const ONE_BLUE: i32 = 1;
-const ONE_RED: i32 = -1;
-
 fn find_best_move_subgraph(game: &Game, player: Color) -> Position {
-    // Brute force move search
-    // For every move, make that move, then compute the value of the position
-    // a position where red loses / blue wins = +1, red wins / blue loses = -1
-
-    // This is bad, but tells us if there's only one edge in the graph (i.e., one move)
-
     let graph = game.get_graph();
+    //println!("Graph has {} edges", graph.edge_count());
+
 
     let mut blue_values = Vec::new();
     let mut red_values = Vec::new();
 
-    for edge_ref in graph.edge_references() {
-        let edge = edge_ref.weight();
-        let index = edge_ref.id();
+    let positions: Vec<(Position, EdgeIndex, &Color)> =
+        graph.edge_references()
+        .into_iter()
+        .map(|edge_ref| (edge_ref.weight(), edge_ref.id()))
+        .collect::<Vec<_>>()
+        .into_iter()
+        .map(|(edge, index)| {
+            let new_game = game.make_move(index);
+            let game_value = //Position {score: unsafe { Surreal::new_with_number_collection(None, None, &mut *unlocked_surreals) }, best_move: None};
+                find_best_move_subgraph(&new_game, edge.invert());
+            (game_value, index, edge)
+        })
+        .collect::<Vec<_>>();
 
-        let new_game = game.make_move(index);
-        let game_value = find_best_move_subgraph(&new_game, edge.invert());
+
+    for (game_value, index, edge) in positions {
         match edge {
             Color::Blue => &mut blue_values,
             Color::Red => &mut red_values,
         }
-        .push((game_value, index))
+            .push((game_value, index))
     }
+
+
     // Now calculate the simplified value of the position
     let left_hand = blue_values.iter().max().copied();
-    let right_hand = red_values.iter().max().copied();
+    let right_hand = red_values.iter().min().copied();
 
-    // This is where we need a surreal number system to compute the actual value
-    // Then we could return the best move and value
 
-    panic!()
+    let surreal_value = Surreal::new( left_hand.map(|(p, _)| p.score), right_hand.map(|(p, _)| p.score));
+    let best_move = match player {
+        Color::Blue => left_hand.map(|(_, m)| m.index()),
+        Color::Red => right_hand.map(|(_, m)| m.index()),
+    };
+
+    Position {score: surreal_value, best_move}
 }

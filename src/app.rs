@@ -1,15 +1,26 @@
+use crate::computer::find_best_move;
 use crate::hackenbush::{Color, Game};
 use itertools::Itertools;
 use nannou::prelude::*;
+use nannou::winit::event::VirtualKeyCode;
 use petgraph::graph::EdgeIndex;
 use petgraph::prelude::StableUnGraph;
 use rand::thread_rng;
 use std::collections::HashMap;
 
+const SIZE: usize = 4;
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum ModelMode {
+    Playing,
+    Building,
+}
+
 pub struct Model {
     _window: window::Id,
     game: Game,
     transform_data: ((f32, f32), (f32, f32)),
+    mode: ModelMode,
 }
 
 impl Model {
@@ -33,7 +44,7 @@ impl Model {
 pub fn model(app: &App) -> Model {
     let win = app.new_window().size(800, 600).view(view).build().unwrap();
 
-    let game = Game::random_triangles(10, &mut thread_rng());
+    let game = Game::random_triangles(SIZE, &mut thread_rng());
 
     let min_x = game
         .get_graph()
@@ -71,6 +82,7 @@ pub fn model(app: &App) -> Model {
         _window: win,
         game,
         transform_data,
+        mode: ModelMode::Playing,
     }
 }
 
@@ -81,13 +93,24 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
             simple: Some(event),
         } => match event {
             MousePressed(MouseButton::Left) => {
-                let edges = get_edge_positions(model.game.get_graph(), &model.trans_func());
-                let closest_edge =
-                    get_selected_edge(app.mouse.position().into(), model.game.get_turn(), &edges);
+                if model.mode == ModelMode::Playing {
+                    let edges = get_edge_positions(model.game.get_graph(), &model.trans_func());
+                    let closest_edge = get_selected_edge(
+                        app.mouse.position().into(),
+                        model.game.get_turn(),
+                        &edges,
+                    );
 
-                if let Some(edge) = closest_edge {
-                    model.game = model.game.make_move(edge);
+                    if let Some(edge) = closest_edge {
+                        model.game = model.game.make_move(edge);
+                    }
+                } else if model.mode == ModelMode::Building {
                 }
+            }
+            KeyPressed(VirtualKeyCode::Return) => {
+                let value = find_best_move(&model.game).score;
+                println!("Got surreal value");
+                println!("Model evaluation is: {}", value.to_real())
             }
             _ => {}
         },
