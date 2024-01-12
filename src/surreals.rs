@@ -19,7 +19,7 @@ impl RawSurreal {
     }
     pub fn less_than(&self, other: &RawSurreal, list: &Vec<RawSurreal>) -> bool {
         (self.left.is_none() || (self.left.is_some() && !other.less_than( &list[self.left.unwrap()], list )) )
-        && (other.right.is_none() || (other.right.is_some() && list[other.right.unwrap()].less_than(self, list)) )
+        && (other.right.is_none() || (other.right.is_some() && !list[other.right.unwrap()].less_than(self, list)) )
     }
     pub fn equal(&self, other: &RawSurreal, list: &Vec<RawSurreal>) -> bool {
         self.less_than(other, list) && other.less_than(self, list)
@@ -99,13 +99,46 @@ impl Surreal {
                 break;
             }
         }
+        let first_found_idx = found_idx + 1;
         if !found {
             // This should only be possible if we have a number from the most recent day
             // In this case, make a new day, then check again
             unlocked_surreals.generate_next_day();
-            for (idx, num) in unlocked_surreals.numbers_by_day[found_idx + 1..].iter().enumerate() {
-                found_idx = idx;
+            for (idx, num) in unlocked_surreals.numbers_by_day[first_found_idx..].iter().enumerate() {
+                found_idx = idx + first_found_idx;
                 if raw.equal(num, &unlocked_surreals.numbers_by_day) {
+                    found = true;
+                    break;
+                }
+            }
+            if !found {
+                panic!("Wasn't able to find surreal")
+            }
+        }
+
+        Surreal { index: found_idx }
+    }
+
+    pub unsafe fn new_with_number_collection(left: Option<Surreal>, right: Option<Surreal>, number_collection: &mut SurrealNumbers) -> Surreal {
+        let raw = RawSurreal::new(left.map(|s| s.index), right.map(|s| s.index), 0.0);
+        // The actual value of this shouldn't matter
+        // find equivalent
+        let mut found_idx = 0;
+        let mut found = false;
+        for (idx, num) in number_collection.numbers_by_day.iter().enumerate() {
+            found_idx = idx;
+            if raw.equal(num, &number_collection.numbers_by_day) {
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            // This should only be possible if we have a number from the most recent day
+            // In this case, make a new day, then check again
+            number_collection.generate_next_day();
+            for (idx, num) in number_collection.numbers_by_day[found_idx + 1..].iter().enumerate() {
+                found_idx = idx;
+                if raw.equal(num, &number_collection.numbers_by_day) {
                     found = true;
                     break;
                 }
@@ -122,6 +155,7 @@ impl Surreal {
 
     pub fn to_real(&self) -> f64 {
         // This is pretty slow, but should be fine
+        /*
         let surreals = SURREALS.lock().unwrap();
         let raw_self = &surreals.numbers_by_day[self.index];
         let mut lower_bound = 0;
@@ -131,21 +165,28 @@ impl Surreal {
         let mut upper_bound_number = -1.0 * lower_bound_number;
 
         while lower_bound != upper_bound {
+            println!("Finding real value, \
+                lower_bound_number: {lower_bound_number}, upper_bound_number: {upper_bound_number},\
+                lower_bound: {lower_bound}, upper_bound: {upper_bound}");
             let guess_idx = (upper_bound - lower_bound) / 2;
             let guess_number = &surreals.numbers_by_day[ surreals.numbers_line[guess_idx] ];
-            let surreal = surreals.numbers_line[guess_idx];
             if raw_self.equal(guess_number, &surreals.numbers_by_day) {
                 return (upper_bound_number + lower_bound_number) / 2.0;
             }
             else if raw_self.less_than(guess_number, &surreals.numbers_by_day) {
-
+                upper_bound = guess_idx;
+                upper_bound_number = (lower_bound_number + upper_bound_number) / 2.0
             }
             else {
-
+                lower_bound = guess_idx;
+                lower_bound_number = (lower_bound_number + upper_bound_number) / 2.0
             }
         }
 
-        0.0
+        panic!("Didn't find match")
+         */
+        let surreals = SURREALS.lock().unwrap();
+        surreals.numbers_by_day[self.index].actual_value
     }
 
 }

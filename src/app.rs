@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use nannou::winit::event::VirtualKeyCode;
 use crate::computer::find_best_move;
 
+const SIZE: usize = 4;
+
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ModelMode {
     Playing,
@@ -42,7 +44,7 @@ impl Model {
 pub fn model(app: &App) -> Model {
     let win = app.new_window().size(800, 600).view(view).build().unwrap();
 
-    let game = Game::random_triangles(20, &mut thread_rng());
+    let game = Game::random_triangles(SIZE, &mut thread_rng());
 
     let min_x = game
         .get_graph()
@@ -104,8 +106,10 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
 
                 }
             }
-            KeyPressed(VirtualKeyCode::Return) =>{
-                println!("Model evaluation is: {}", find_best_move(&model.game).score.to_real())
+            KeyPressed(VirtualKeyCode::Return) => {
+                let value = find_best_move(&model.game).score;
+                println!("Got surreal value");
+                println!("Model evaluation is: {}", value.to_real())
             }
             _ => {}
         },
