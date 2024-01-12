@@ -1,21 +1,22 @@
+use crate::computer::find_best_move;
 use crate::hackenbush::{Color, Game};
 use itertools::Itertools;
 use nannou::prelude::*;
+use nannou::winit::event::VirtualKeyCode;
 use petgraph::graph::EdgeIndex;
 use petgraph::prelude::StableUnGraph;
 use rand::thread_rng;
 use std::collections::HashMap;
-use nannou::winit::event::VirtualKeyCode;
 use petgraph::adj::NodeIndex;
 use petgraph::data::DataMap;
-use crate::computer::find_best_move;
+
 
 const SIZE: usize = 4;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum ModelMode {
     Playing,
-    Building
+    Building,
 }
 
 pub struct Model {
@@ -99,21 +100,35 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
             MousePressed(MouseButton::Left) => {
                 if model.mode == ModelMode::Playing {
                     let edges = get_edge_positions(model.game.get_graph(), &model.trans_func());
-                    let closest_edge =
-                        get_selected_edge(app.mouse.position().into(), model.game.get_turn(), &edges);
+                    let closest_edge = get_selected_edge(
+                        app.mouse.position().into(),
+                        model.game.get_turn(),
+                        &edges,
+                    );
 
                     if let Some(edge) = closest_edge {
                         model.game = model.game.make_move(edge);
                     }
                 }
                 else if model.mode == ModelMode::Building {
-                    if model.selected_node.is_some() {
+                    let (x, y) = app.mouse.position().into();
+                    if !app.window_rect().pad(20.0).contains(pt2(x, y))
+                        && app.window_rect().contains(pt2(x, y))
+                    {
+                        model.game.switch_turn();
+                    }
+                    else if model.selected_node.is_some() {
 
                     }
                     else {
                         // Get node they wanted to click on
                         let nodes = get_node_positions(model.game.get_graph(), &model.trans_func());
-
+                        let closest_node = get_selected_node(
+                            app.mouse.position().into(), &nodes
+                        );
+                        if let Some(node) = closest_node {
+                            model.g
+                        }
                     }
                 }
             }
@@ -256,4 +271,6 @@ fn get_selected_edge(
     distances.first().copied()
 }
 
-fn get_selected_edge(point: (f32, f32),
+fn get_selected_node(point: (f32, f32), nodes: &HashMap<NodeIndex, (f32, f32)>) -> Option<NodeIndex> {
+    nodes.iter().map(|(i, (nx, ny))| (i, f32::hypot(nx - point.0, ny - point.1))).filter(|(_, dist)| *dist <= 7.0f32).sorted_unstable_by(|(_, dist1), (_, dist2)| dist1.partial_cmp(dist2).unwrap()).map(|(i, _)| *i).next()
+}
