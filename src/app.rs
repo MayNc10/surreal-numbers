@@ -3,13 +3,11 @@ use crate::hackenbush::{Color, Game};
 use itertools::Itertools;
 use nannou::prelude::*;
 use nannou::winit::event::VirtualKeyCode;
-use petgraph::graph::EdgeIndex;
+use petgraph::data::DataMap;
+use petgraph::graph::{EdgeIndex, NodeIndex};
 use petgraph::prelude::StableUnGraph;
 use rand::thread_rng;
 use std::collections::HashMap;
-use petgraph::adj::NodeIndex;
-use petgraph::data::DataMap;
-
 
 const SIZE: usize = 4;
 
@@ -109,25 +107,19 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
                     if let Some(edge) = closest_edge {
                         model.game = model.game.make_move(edge);
                     }
-                }
-                else if model.mode == ModelMode::Building {
+                } else if model.mode == ModelMode::Building {
                     let (x, y) = app.mouse.position().into();
                     if !app.window_rect().pad(20.0).contains(pt2(x, y))
                         && app.window_rect().contains(pt2(x, y))
                     {
                         model.game.switch_turn();
-                    }
-                    else if model.selected_node.is_some() {
-
-                    }
-                    else {
+                    } else if model.selected_node.is_some() {
+                    } else {
                         // Get node they wanted to click on
                         let nodes = get_node_positions(model.game.get_graph(), &model.trans_func());
-                        let closest_node = get_selected_node(
-                            app.mouse.position().into(), &nodes
-                        );
+                        let closest_node = get_selected_node(app.mouse.position().into(), &nodes);
                         if let Some(node) = closest_node {
-                            model.g
+                            model.selected_node = Some(node);
                         }
                     }
                 }
@@ -140,7 +132,7 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
             KeyPressed(VirtualKeyCode::M) => {
                 model.mode = match model.mode {
                     ModelMode::Building => ModelMode::Playing,
-                    ModelMode::Playing => ModelMode::Building
+                    ModelMode::Playing => ModelMode::Building,
                 };
             }
             _ => {}
@@ -227,12 +219,10 @@ fn get_edge_positions(
 fn get_node_positions(
     graph: &StableUnGraph<(bool, (f32, f32)), Color>,
     transform: &impl Fn((f32, f32)) -> (f32, f32),
-) -> HashMap<petgraph::prelude::NodeIndex, (f32, f32)> {
+) -> HashMap<NodeIndex, (f32, f32)> {
     graph
         .node_indices()
-        .map(|node| {
-            (node, transform(graph.node_weight(node).unwrap().1))
-        })
+        .map(|node| (node, transform(graph.node_weight(node).unwrap().1)))
         .collect()
 }
 
@@ -271,6 +261,15 @@ fn get_selected_edge(
     distances.first().copied()
 }
 
-fn get_selected_node(point: (f32, f32), nodes: &HashMap<NodeIndex, (f32, f32)>) -> Option<NodeIndex> {
-    nodes.iter().map(|(i, (nx, ny))| (i, f32::hypot(nx - point.0, ny - point.1))).filter(|(_, dist)| *dist <= 7.0f32).sorted_unstable_by(|(_, dist1), (_, dist2)| dist1.partial_cmp(dist2).unwrap()).map(|(i, _)| *i).next()
+fn get_selected_node(
+    point: (f32, f32),
+    nodes: &HashMap<NodeIndex, (f32, f32)>,
+) -> Option<NodeIndex> {
+    nodes
+        .iter()
+        .map(|(i, (nx, ny))| (i, f32::hypot(nx - point.0, ny - point.1)))
+        .filter(|(_, dist)| *dist <= 7.0f32)
+        .sorted_unstable_by(|(_, dist1), (_, dist2)| dist1.partial_cmp(dist2).unwrap())
+        .map(|(i, _)| *i)
+        .next()
 }
