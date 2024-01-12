@@ -63,6 +63,8 @@ pub struct Game {
 
 impl Game {
     pub fn random_triangles(size: usize, rng: &mut ThreadRng) -> Game {
+        let mut current_color: Color = rng.gen();
+
         let mut points: Vec<_> = [(0f32, 0f32)]
             .into_iter()
             .chain((0..1).map(|i| (i as f32, 1f32)))
@@ -72,7 +74,8 @@ impl Game {
         graph.add_node((false, points[0]));
         for (i, &point) in points.iter().enumerate().skip(1) {
             graph.add_node((false, point));
-            graph.add_edge(NodeIndex::new(0), NodeIndex::new(i), rng.gen());
+            graph.add_edge(NodeIndex::new(0), NodeIndex::new(i), current_color);
+            current_color = current_color.invert();
         }
 
         let mut free_edges = graph.edge_indices().collect::<Vec<_>>();
@@ -94,8 +97,10 @@ impl Game {
             );
             points.push((x, y));
             graph.add_node((false, (x, y)));
-            graph.add_edge(NodeIndex::new(i), ai, rng.gen());
-            graph.add_edge(NodeIndex::new(i), bi, rng.gen());
+            graph.add_edge(NodeIndex::new(i), ai, current_color);
+            current_color = current_color.invert();
+            graph.add_edge(NodeIndex::new(i), bi, current_color);
+            current_color = current_color.invert();
             free_edges.push(graph.find_edge(NodeIndex::new(i), ai).unwrap());
             free_edges.push(graph.find_edge(NodeIndex::new(i), bi).unwrap());
         }
@@ -114,7 +119,7 @@ impl Game {
 
         Game {
             graph,
-            turn: rng.gen(),
+            turn: current_color.invert(),
         }
     }
 

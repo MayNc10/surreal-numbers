@@ -33,7 +33,7 @@ impl Model {
 pub fn model(app: &App) -> Model {
     let win = app.new_window().size(800, 600).view(view).build().unwrap();
 
-    let game = Game::random_triangles(20, &mut thread_rng());
+    let game = Game::random_triangles(10, &mut thread_rng());
 
     let min_x = game
         .get_graph()
