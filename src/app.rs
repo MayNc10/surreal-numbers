@@ -105,6 +105,12 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
                         model.game = model.game.make_move(edge);
                     }
                 } else if model.mode == ModelMode::Building {
+                    let (x, y) = app.mouse.position().into();
+                    if !app.window_rect().pad(20.0).contains(pt2(x, y))
+                        && app.window_rect().contains(pt2(x, y))
+                    {
+                        model.game.switch_turn();
+                    }
                 }
             }
             KeyPressed(VirtualKeyCode::Return) => {

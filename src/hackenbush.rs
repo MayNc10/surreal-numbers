@@ -1,10 +1,10 @@
+use crate::computer::Position;
 use itertools::Itertools;
 use nannou::color::{Rgba8, Srgb, BLUE, CYAN, PINK, RED};
 use petgraph::data::DataMap;
 use petgraph::prelude::*;
 use rand::distributions::Standard;
 use rand::prelude::*;
-use crate::computer::Position;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 
@@ -174,5 +174,9 @@ impl Game {
 
     pub fn get_turn(&self) -> Color {
         self.turn
+    }
+
+    pub fn switch_turn(&mut self) {
+        self.turn = self.turn.invert();
     }
 }
