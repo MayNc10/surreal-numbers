@@ -6,6 +6,8 @@ use petgraph::prelude::StableUnGraph;
 use rand::thread_rng;
 use std::collections::HashMap;
 use nannou::winit::event::VirtualKeyCode;
+use petgraph::adj::NodeIndex;
+use petgraph::data::DataMap;
 use crate::computer::find_best_move;
 
 const SIZE: usize = 4;
@@ -21,6 +23,7 @@ pub struct Model {
     game: Game,
     transform_data: ((f32, f32), (f32, f32)),
     mode: ModelMode,
+    selected_node: Option<NodeIndex>,
 }
 
 impl Model {
@@ -82,7 +85,8 @@ pub fn model(app: &App) -> Model {
         _window: win,
         game,
         transform_data,
-        mode: ModelMode::Playing
+        mode: ModelMode::Playing,
+        selected_node: None,
     }
 }
 
@@ -103,13 +107,26 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
                     }
                 }
                 else if model.mode == ModelMode::Building {
+                    if model.selected_node.is_some() {
 
+                    }
+                    else {
+                        // Get node they wanted to click on
+                        let nodes = get_node_positions(model.game.get_graph(), &model.trans_func());
+
+                    }
                 }
             }
             KeyPressed(VirtualKeyCode::Return) => {
                 let value = find_best_move(&model.game).score;
                 println!("Got surreal value");
                 println!("Model evaluation is: {}", value.to_real())
+            }
+            KeyPressed(VirtualKeyCode::M) => {
+                model.mode = match model.mode {
+                    ModelMode::Building => ModelMode::Playing,
+                    ModelMode::Playing => ModelMode::Building
+                };
             }
             _ => {}
         },
@@ -192,6 +209,18 @@ fn get_edge_positions(
         .collect()
 }
 
+fn get_node_positions(
+    graph: &StableUnGraph<(bool, (f32, f32)), Color>,
+    transform: &impl Fn((f32, f32)) -> (f32, f32),
+) -> HashMap<petgraph::prelude::NodeIndex, (f32, f32)> {
+    graph
+        .node_indices()
+        .map(|node| {
+            (node, transform(graph.node_weight(node).unwrap().1))
+        })
+        .collect()
+}
+
 fn get_selected_edge(
     point: (f32, f32),
     color: Color,
@@ -226,3 +255,5 @@ fn get_selected_edge(
 
     distances.first().copied()
 }
+
+fn get_selected_edge(point: (f32, f32),
