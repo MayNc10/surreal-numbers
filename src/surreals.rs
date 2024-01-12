@@ -4,7 +4,10 @@ use std::iter::zip;
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 
-struct RawSurreal {
+const ZERO: RawSurreal = RawSurreal { left: None, right: None };
+
+#[derive(Debug)]
+pub struct RawSurreal {
     left: Option<usize>,
     right: Option<usize>,
 }
@@ -30,7 +33,7 @@ pub struct SurrealNumbers {
 
 impl SurrealNumbers {
     pub fn new() -> SurrealNumbers {
-        SurrealNumbers { numbers_line: VecDeque::new(), numbers_by_day: Vec::new(), day: 0 }
+        SurrealNumbers { numbers_line: VecDeque::from([0]), numbers_by_day: vec![ZERO], day: 0 }
     }
     pub fn generate_next_day(&mut self) {
         let base_length = self.numbers_by_day.len();
@@ -40,8 +43,9 @@ impl SurrealNumbers {
         let mut new_numbers: Vec<_> = self.numbers_line.as_slices().0.windows(2)
             .into_iter().map(|arr| RawSurreal::new(Some(arr[0]), Some(arr[1]))).collect();
         // Add the ending numbers
-        new_numbers.push(RawSurreal::new(None, Some(self.numbers_line[0])));
         new_numbers.push(RawSurreal::new(Some(*self.numbers_line.back().unwrap()), None));
+        new_numbers.push(RawSurreal::new(None, Some(self.numbers_line[0])));
+        self.numbers_by_day.append(&mut new_numbers);
 
         // Update the number line
         self.numbers_line = self.numbers_line.iter()
@@ -49,11 +53,16 @@ impl SurrealNumbers {
             .map(|tup| [*tup.0, tup.1]) // There's gotta be a better way to do this
             .flatten()
             .collect();
-        self.numbers_line.push_front(self.numbers_by_day.len() - 2);
-        self.numbers_line.push_back(self.numbers_by_day.len() - 1);
+        self.numbers_line.push_front(self.numbers_by_day.len() - 1);
     }
     fn index(&self, index: usize) -> &RawSurreal {
         &self.numbers_by_day[index]
+    }
+    pub fn numbers(&self) -> &Vec<RawSurreal> {
+        &self.numbers_by_day
+    }
+    pub fn number_line(&self) -> Vec<&RawSurreal> {
+        self.numbers_line.iter().map(|idx| &self.numbers_by_day[*idx]).collect()
     }
 }
 
