@@ -172,6 +172,10 @@ impl Game {
         &self.graph
     }
 
+    pub fn get_graph_mut(&mut self) -> &mut StableUnGraph<(bool, (f32, f32)), Color> {
+        &mut self.graph
+    }
+
     pub fn get_turn(&self) -> Color {
         self.turn
     }

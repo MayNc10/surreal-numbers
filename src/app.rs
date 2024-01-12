@@ -1,3 +1,4 @@
+use crate::app::ModelMode::{Building, Playing};
 use crate::computer::find_best_move;
 use crate::hackenbush::{Color, Game};
 use itertools::Itertools;
@@ -35,6 +36,18 @@ impl Model {
         let (x, y) = point;
         let x = x * multiplier_x + offset_x;
         let y = y * multiplier_y + offset_y;
+        (x, y)
+    }
+
+    fn inverse_transform(&self, point: (f32, f32)) -> (f32, f32) {
+        let multiplier_x = self.transform_data.0 .0;
+        let offset_x = self.transform_data.0 .1;
+        let multiplier_y = self.transform_data.1 .0;
+        let offset_y = self.transform_data.1 .1;
+
+        let (x, y) = point;
+        let x = (x - offset_x) / multiplier_x;
+        let y = (y - offset_y) / multiplier_y;
         (x, y)
     }
 
@@ -97,6 +110,12 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
         } => match event {
             MousePressed(MouseButton::Left) => {
                 if model.mode == ModelMode::Playing {
+                    let (x, y) = app.mouse.position().into();
+                    if !app.window_rect().pad(20.0).contains(pt2(x, y))
+                        && app.window_rect().contains(pt2(x, y))
+                    {
+                        model.game.switch_turn();
+                    }
                     let edges = get_edge_positions(model.game.get_graph(), &model.trans_func());
                     let closest_edge = get_selected_edge(
                         app.mouse.position().into(),
@@ -107,13 +126,38 @@ pub fn event(app: &App, model: &mut Model, event: Event) {
                     if let Some(edge) = closest_edge {
                         model.game = model.game.make_move(edge);
                     }
-                } else if model.mode == ModelMode::Building {
+                } else if model.mode == Building {
                     let (x, y) = app.mouse.position().into();
                     if !app.window_rect().pad(20.0).contains(pt2(x, y))
                         && app.window_rect().contains(pt2(x, y))
                     {
                         model.game.switch_turn();
                     } else if model.selected_node.is_some() {
+                        let nodes = get_node_positions(model.game.get_graph(), &model.trans_func());
+
+                        let new_node;
+                        if let Some(node) = get_selected_node(app.mouse.position().into(), &nodes) {
+                            new_node = node;
+                        } else {
+                            let new_node_pos = model.inverse_transform((x, y));
+                            let node_weight = (
+                                model
+                                    .game
+                                    .get_graph()
+                                    .node_weight(NodeIndex::new(0))
+                                    .unwrap()
+                                    .0,
+                                new_node_pos,
+                            );
+                            new_node = model.game.get_graph_mut().add_node(node_weight);
+                        }
+                        let turn = model.game.get_turn();
+                        model.game.get_graph_mut().add_edge(
+                            model.selected_node.unwrap(),
+                            new_node,
+                            turn,
+                        );
+                        model.selected_node = None;
                     } else {
                         // Get node they wanted to click on
                         let nodes = get_node_positions(model.game.get_graph(), &model.trans_func());
@@ -149,6 +193,11 @@ fn view(app: &App, model: &Model, frame: Frame) {
     draw.background()
         .color(model.game.get_turn().get_border_color());
 
+    if model.mode == Building {
+        let backdrop = win.pad(10.0);
+        draw.rect().xy(backdrop.xy()).wh(backdrop.wh()).color(BLACK);
+    }
+
     let backdrop = win.pad(20.0);
     draw.rect()
         .xy(backdrop.xy())
@@ -157,16 +206,18 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     let edges = get_edge_positions(model.game.get_graph(), &model.trans_func());
 
-    if let Some(edge) =
-        get_selected_edge(app.mouse.position().into(), model.game.get_turn(), &edges)
-    {
-        let (start, end, color) = edges[&edge];
-        if color == model.game.get_turn() {
-            draw.line()
-                .start(pt2(start.0, start.1))
-                .end(pt2(end.0, end.1))
-                .color(color.get_light_color())
-                .stroke_weight(10.0);
+    if model.mode == Playing {
+        if let Some(edge) =
+            get_selected_edge(app.mouse.position().into(), model.game.get_turn(), &edges)
+        {
+            let (start, end, color) = edges[&edge];
+            if color == model.game.get_turn() {
+                draw.line()
+                    .start(pt2(start.0, start.1))
+                    .end(pt2(end.0, end.1))
+                    .color(color.get_light_color())
+                    .stroke_weight(10.0);
+            }
         }
     }
 
@@ -176,6 +227,19 @@ fn view(app: &App, model: &Model, frame: Frame) {
             .end(end.into())
             .color(color.get_color())
             .stroke_weight(5.0);
+    }
+
+    if model.mode == Building {
+        if let Some(node) = model.selected_node {
+            let (x, y) = model.transform(model.game.get_graph().node_weight(node).unwrap().1);
+            draw.ellipse().x_y(x, y).radius(10.0).color(GRAY);
+        }
+
+        let nodes = get_node_positions(model.game.get_graph(), &model.trans_func());
+        if let Some(node) = get_selected_node(app.mouse.position().into(), &nodes) {
+            let (x, y) = model.transform(model.game.get_graph().node_weight(node).unwrap().1);
+            draw.ellipse().x_y(x, y).radius(10.0).color(GRAY);
+        }
     }
 
     for node in model.game.get_graph().node_indices().skip(1) {
